@@ -1,11 +1,9 @@
-<?php
+<?php namespace Laravel\Socialite\Two;
 
-namespace Laravel\Socialite\Two;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
-use GuzzleHttp\ClientInterface;
+class GoogleProvider extends AbstractProvider implements ProviderInterface {
 
-class GoogleProvider extends AbstractProvider implements ProviderInterface
-{
     /**
      * The separating character for the requested scopes.
      *
@@ -19,9 +17,8 @@ class GoogleProvider extends AbstractProvider implements ProviderInterface
      * @var array
      */
     protected $scopes = [
-        'https://www.googleapis.com/auth/plus.me',
-        'https://www.googleapis.com/auth/plus.login',
-        'https://www.googleapis.com/auth/plus.profile.emails.read',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
     ];
 
     /**
@@ -48,10 +45,8 @@ class GoogleProvider extends AbstractProvider implements ProviderInterface
      */
     public function getAccessToken($code)
     {
-        $postKey = (version_compare(ClientInterface::VERSION, '6') === 1) ? 'form_params' : 'body';
-
         $response = $this->getHttpClient()->post($this->getTokenUrl(), [
-            $postKey => $this->getTokenFields($code),
+            'body' => $this->getTokenFields($code),
         ]);
 
         return $this->parseAccessToken($response->getBody());
@@ -75,13 +70,9 @@ class GoogleProvider extends AbstractProvider implements ProviderInterface
      */
     protected function getUserByToken($token)
     {
-        $response = $this->getHttpClient()->get('https://www.googleapis.com/plus/v1/people/me?', [
-            'query' => [
-                'prettyPrint' => 'false',
-            ],
+        $response = $this->getHttpClient()->get('https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token='.$token, [
             'headers' => [
                 'Accept' => 'application/json',
-                'Authorization' => 'Bearer '.$token,
             ],
         ]);
 
@@ -94,8 +85,9 @@ class GoogleProvider extends AbstractProvider implements ProviderInterface
     protected function mapUserToObject(array $user)
     {
         return (new User)->setRaw($user)->map([
-            'id' => $user['id'], 'nickname' => array_get($user, 'nickname'), 'name' => $user['displayName'],
-            'email' => $user['emails'][0]['value'], 'avatar' => array_get($user, 'image')['url'],
+            'id' => $user['id'], 'nickname' => null, 'name' => $user['given_name'].' '.$user['family_name'],
+            'email' => $user['email'], 'avatar' => array_get($user, 'picture'),
         ]);
     }
+
 }
